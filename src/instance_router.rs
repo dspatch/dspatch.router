@@ -231,7 +231,7 @@ pub struct InstanceRouter {
 }
 
 impl InstanceRouter {
-    pub fn new(instance_id: String) -> (Self, mpsc::Receiver<FeedItem>) {
+    pub fn new(instance_id: String, history: Vec<serde_json::Value>) -> (Self, mpsc::Receiver<FeedItem>) {
         let (tx, rx) = mpsc::channel(FEED_CHANNEL_SIZE);
         let router = Self {
             instance_id,
@@ -240,6 +240,12 @@ impl InstanceRouter {
             turn_stack: parking_lot::Mutex::new(Vec::new()),
             feed_tx: tx,
         };
+
+        // Enqueue history items as inputs for the agent to replay
+        for event in history {
+            router.receive(event);
+        }
+
         (router, rx)
     }
 

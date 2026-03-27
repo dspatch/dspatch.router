@@ -42,8 +42,8 @@ impl AgentHostRouter {
             .map(|h| h.router.state_machine().lock().state())
     }
 
-    pub fn spawn_instance(&self, instance_id: String, _history: Vec<serde_json::Value>) {
-        let (router, feed_rx) = InstanceRouter::new(instance_id.clone());
+    pub fn spawn_instance(&self, instance_id: String, history: Vec<serde_json::Value>) {
+        let (router, feed_rx) = InstanceRouter::new(instance_id.clone(), history);
         let handle = Arc::new(InstanceHandle {
             router: Arc::new(router),
             feed_rx: tokio::sync::Mutex::new(feed_rx),

@@ -17,7 +17,7 @@ fn make_inquiry_request(inquiry_id: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn idle_delivers_user_input() {
-    let (router, mut rx) = InstanceRouter::new("lead-0".into());
+    let (router, mut rx) = InstanceRouter::new("lead-0".into(), vec![]);
     router.receive(make_user_input("hello"));
     let item = rx.recv().await.unwrap();
     assert!(matches!(item.kind, FeedItemKind::Input));
@@ -25,7 +25,7 @@ async fn idle_delivers_user_input() {
 
 #[tokio::test]
 async fn generating_buffers_user_input() {
-    let (router, mut rx) = InstanceRouter::new("lead-0".into());
+    let (router, mut rx) = InstanceRouter::new("lead-0".into(), vec![]);
     router.state_machine().lock().enter_generating().unwrap();
     router.receive(make_user_input("hello"));
     assert!(rx.try_recv().is_err());
@@ -34,7 +34,7 @@ async fn generating_buffers_user_input() {
 
 #[tokio::test]
 async fn state_change_flushes_buffer() {
-    let (router, mut rx) = InstanceRouter::new("lead-0".into());
+    let (router, mut rx) = InstanceRouter::new("lead-0".into(), vec![]);
     router.state_machine().lock().enter_generating().unwrap();
     router.receive(make_user_input("hello"));
     assert!(rx.try_recv().is_err());
@@ -47,7 +47,7 @@ async fn state_change_flushes_buffer() {
 
 #[tokio::test]
 async fn waiting_delivers_response() {
-    let (router, mut rx) = InstanceRouter::new("lead-0".into());
+    let (router, mut rx) = InstanceRouter::new("lead-0".into(), vec![]);
     {
         let mut sm = router.state_machine().lock();
         sm.enter_generating().unwrap();
@@ -60,7 +60,7 @@ async fn waiting_delivers_response() {
 
 #[tokio::test]
 async fn inquiry_interrupt_has_priority() {
-    let (router, _rx) = InstanceRouter::new("lead-0".into());
+    let (router, _rx) = InstanceRouter::new("lead-0".into(), vec![]);
     router.state_machine().lock().enter_generating().unwrap();
 
     router.receive(make_user_input("hello"));
@@ -73,7 +73,7 @@ async fn inquiry_interrupt_has_priority() {
 
 #[test]
 fn turn_id_stack() {
-    let (router, _rx) = InstanceRouter::new("lead-0".into());
+    let (router, _rx) = InstanceRouter::new("lead-0".into(), vec![]);
     assert!(router.current_turn_id().is_none());
 
     let t1 = router.push_turn(Some("turn-1".into()));
@@ -93,7 +93,7 @@ fn turn_id_stack() {
 
 #[test]
 fn tag_outbound_injects_turn_id() {
-    let (router, _rx) = InstanceRouter::new("lead-0".into());
+    let (router, _rx) = InstanceRouter::new("lead-0".into(), vec![]);
     router.push_turn(Some("turn-1".into()));
 
     let output = json!({"type": "agent.output.message", "content": "hi"});
