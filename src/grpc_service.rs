@@ -100,8 +100,14 @@ impl DspatchRouter for DspatchRouterService {
             ir.flush();
         }
 
-        if let Some(_result) = &req.result {
-            tracing::debug!(instance = %req.instance_id, "Turn completed with result");
+        if let Some(result) = &req.result {
+            // The turn_id IS the request_id for talk_to chains.
+            // Resolve the chain link so the calling agent gets the response.
+            let response = serde_json::json!({
+                "response": result,
+                "instance_id": req.instance_id,
+            });
+            self.router.resolve_talk_to(&req.turn_id, response);
         }
 
         Ok(Response::new(Ack { ok: true }))
