@@ -41,7 +41,7 @@ async fn cycle_detection_rejects_cycle() {
     router.spawn_instance("lead", "lead-0", vec![]);
     router.spawn_instance("coder", "coder-0", vec![]);
 
-    router.add_chain_link("req-1", "lead", "lead-0", "coder", vec!["lead".into()]);
+    router.add_chain_link("req-1", "lead-0", "coder", vec!["lead".into()]);
 
     let has_cycle = router.would_create_cycle("coder-0", "lead");
     assert!(has_cycle);

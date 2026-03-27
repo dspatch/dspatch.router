@@ -23,8 +23,6 @@ use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
 struct ChainLink {
-    request_id: String,
-    caller_agent: String,
     caller_instance: String,
     target_agent: String,
     chain: Vec<String>,
@@ -33,9 +31,7 @@ struct ChainLink {
 
 #[derive(Debug)]
 struct PendingInquiryBubble {
-    inquiry_id: String,
     origin_agent_key: String,
-    origin_instance_id: String,
     current_supervisor_key: String,
     event: serde_json::Value,
     forwarding_chain: Vec<String>,
@@ -43,7 +39,6 @@ struct PendingInquiryBubble {
 }
 
 pub struct HostRouter {
-    agents_meta: HashMap<String, AgentMeta>,
     agent_hosts: Mutex<HashMap<String, Arc<AgentHostRouter>>>,
     chain_links: Mutex<HashMap<String, ChainLink>>,
     instance_chains: Mutex<HashMap<String, Vec<String>>>,
@@ -75,7 +70,6 @@ impl HostRouter {
             .collect();
 
         Self {
-            agents_meta,
             agent_hosts: Mutex::new(HashMap::new()),
             chain_links: Mutex::new(HashMap::new()),
             instance_chains: Mutex::new(HashMap::new()),
@@ -178,7 +172,6 @@ impl HostRouter {
     pub fn add_chain_link(
         &self,
         request_id: &str,
-        caller_agent: &str,
         caller_instance: &str,
         target_agent: &str,
         chain: Vec<String>,
@@ -186,8 +179,6 @@ impl HostRouter {
         self.chain_links.lock().insert(
             request_id.to_string(),
             ChainLink {
-                request_id: request_id.to_string(),
-                caller_agent: caller_agent.to_string(),
                 caller_instance: caller_instance.to_string(),
                 target_agent: target_agent.to_string(),
                 chain,
@@ -281,8 +272,6 @@ impl HostRouter {
         self.chain_links.lock().insert(
             request_id.clone(),
             ChainLink {
-                request_id: request_id.clone(),
-                caller_agent: caller_agent.clone(),
                 caller_instance: caller_instance_id.to_string(),
                 target_agent: target_agent.to_string(),
                 chain,
@@ -351,9 +340,7 @@ impl HostRouter {
         let (tx, rx) = oneshot::channel();
 
         self.pending_bubbles.lock().insert(inquiry_id.to_string(), PendingInquiryBubble {
-            inquiry_id: inquiry_id.to_string(),
             origin_agent_key: self.agent_key_for_instance(instance_id).unwrap_or_default(),
-            origin_instance_id: instance_id.to_string(),
             current_supervisor_key: String::new(),
             event: serde_json::json!({
                 "type": "agent.event.inquiry.request",
@@ -447,9 +434,7 @@ impl HostRouter {
         response_tx: Option<oneshot::Sender<serde_json::Value>>,
     ) {
         self.pending_bubbles.lock().insert(inquiry_id.to_string(), PendingInquiryBubble {
-            inquiry_id: inquiry_id.to_string(),
             origin_agent_key: agent_key.to_string(),
-            origin_instance_id: instance_id.to_string(),
             current_supervisor_key: String::new(),
             event: serde_json::json!({
                 "type": "agent.event.inquiry.request",

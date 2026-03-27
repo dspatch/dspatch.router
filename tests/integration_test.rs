@@ -94,7 +94,7 @@ async fn talk_to_cycle_detection() {
     router.spawn_instance("coder", "coder-0", vec![]);
 
     // Simulate active chain: lead-0 → coder
-    router.add_chain_link("req-existing", "lead", "lead-0", "coder", vec!["lead".into()]);
+    router.add_chain_link("req-existing", "lead-0", "coder", vec!["lead".into()]);
 
     // Put coder-0 in generating state
     if let Some(ir) = router.get_instance_router("coder-0") {
