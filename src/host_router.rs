@@ -22,7 +22,6 @@ use tokio::sync::{mpsc, oneshot};
 // ── Chain tracking ───────────────────────────────────────────────────────
 
 #[derive(Debug)]
-#[allow(dead_code)] // Fields populated during routing, read access pending full implementation
 struct ChainLink {
     request_id: String,
     caller_agent: String,
@@ -33,7 +32,6 @@ struct ChainLink {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)] // Fields populated during routing, read access pending full implementation
 struct PendingInquiryBubble {
     inquiry_id: String,
     origin_agent_key: String,
@@ -44,7 +42,6 @@ struct PendingInquiryBubble {
 }
 
 pub struct HostRouter {
-    #[allow(dead_code)] // Populated at init, read access pending full implementation
     agents_meta: HashMap<String, AgentMeta>,
     agent_hosts: Mutex<HashMap<String, Arc<AgentHostRouter>>>,
     chain_links: Mutex<HashMap<String, ChainLink>>,
