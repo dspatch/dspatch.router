@@ -39,6 +39,7 @@ struct PendingInquiryBubble {
     current_supervisor_key: String,
     event: serde_json::Value,
     forwarding_chain: Vec<String>,
+    response_tx: Option<oneshot::Sender<serde_json::Value>>,
 }
 
 pub struct HostRouter {
@@ -347,7 +348,7 @@ impl HostRouter {
         file_paths: &[String],
         priority: &str,
     ) -> oneshot::Receiver<serde_json::Value> {
-        let (_tx, rx) = oneshot::channel();
+        let (tx, rx) = oneshot::channel();
 
         self.pending_bubbles.lock().insert(inquiry_id.to_string(), PendingInquiryBubble {
             inquiry_id: inquiry_id.to_string(),
@@ -364,6 +365,7 @@ impl HostRouter {
                 "priority": priority,
             }),
             forwarding_chain: vec![],
+            response_tx: Some(tx),
         });
 
         let agent_key = self.agent_key_for_instance(instance_id).unwrap_or_default();
@@ -438,6 +440,7 @@ impl HostRouter {
         inquiry_id: &str,
         agent_key: &str,
         instance_id: &str,
+        response_tx: Option<oneshot::Sender<serde_json::Value>>,
     ) {
         self.pending_bubbles.lock().insert(inquiry_id.to_string(), PendingInquiryBubble {
             inquiry_id: inquiry_id.to_string(),
@@ -450,11 +453,19 @@ impl HostRouter {
                 "instance_id": instance_id,
             }),
             forwarding_chain: vec![],
+            response_tx,
         });
     }
 
-    pub fn resolve_inquiry(&self, inquiry_id: &str, _response: serde_json::Value) -> bool {
-        self.pending_bubbles.lock().remove(inquiry_id).is_some()
+    pub fn resolve_inquiry(&self, inquiry_id: &str, response: serde_json::Value) -> bool {
+        if let Some(bubble) = self.pending_bubbles.lock().remove(inquiry_id) {
+            if let Some(tx) = bubble.response_tx {
+                let _ = tx.send(response);
+            }
+            true
+        } else {
+            false
+        }
     }
 
     // ── Heartbeat ────────────────────────────────────────────────────
