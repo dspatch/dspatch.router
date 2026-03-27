@@ -1,5 +1,5 @@
 use dspatch_router::instance_router::{
-    FeedItem, FeedItemKind, InstanceRouter, InstanceState,
+    FeedItemKind, InstanceRouter,
 };
 use serde_json::json;
 

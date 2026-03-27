@@ -1,4 +1,4 @@
-use dspatch_router::instance_router::{InstanceState, StateMachine, PendingWait};
+use dspatch_router::instance_router::{InstanceState, StateMachine};
 
 #[test]
 fn initial_state_is_idle() {
