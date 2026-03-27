@@ -160,7 +160,7 @@ impl DspatchRouter for DspatchRouterService {
                         }
                         Ok(Response::new(TalkToRpcResponse {
                             result: Some(talk_to_rpc_response::Result::Error(TalkToError {
-                                request_id: String::new(),
+                                request_id: request_id.clone(),
                                 reason: "channel_closed".into(),
                             })),
                         }))
@@ -233,6 +233,8 @@ impl DspatchRouter for DspatchRouterService {
             &req.file_paths,
             &req.priority,
         ).await;
+
+        self.router.spawn_inquiry_timeout(&inquiry_id);
 
         match rx.await {
             Ok(response) => {
