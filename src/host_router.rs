@@ -468,6 +468,88 @@ impl HostRouter {
         }
     }
 
+    /// Surface an inquiry directly to the engine (user) when no supervisor can handle it.
+    pub fn surface_inquiry_to_engine(&self, inquiry_id: &str) {
+        let bubble = self.pending_bubbles.lock().get(inquiry_id).map(|b| b.event.clone());
+        if let Some(event) = bubble {
+            self.relay_output(event);
+        }
+    }
+
+    /// Forward a pending inquiry to the next supervisor in the hierarchy.
+    /// Returns true if forwarded, false if no supervisor found (should surface to engine).
+    pub fn bubble_inquiry(&self, inquiry_id: &str) -> bool {
+        let bubble_info = {
+            let bubbles = self.pending_bubbles.lock();
+            bubbles.get(inquiry_id).map(|b| (
+                b.origin_agent_key.clone(),
+                b.current_supervisor_key.clone(),
+                b.event.clone(),
+                b.forwarding_chain.clone(),
+            ))
+        };
+
+        let (origin_agent, current_supervisor, event, mut chain) = match bubble_info {
+            Some(info) => info,
+            None => return false,
+        };
+
+        // Determine next supervisor
+        let lookup_key = if current_supervisor.is_empty() {
+            &origin_agent
+        } else {
+            &current_supervisor
+        };
+
+        let next_supervisor = match self.supervisor_for(lookup_key) {
+            Some(s) => s,
+            None => {
+                self.surface_inquiry_to_engine(inquiry_id);
+                return false;
+            }
+        };
+
+        // Forward to supervisor's instance
+        let hosts = self.agent_hosts.lock();
+        if let Some(host) = hosts.get(&next_supervisor) {
+            let ids = host.instance_ids();
+            if let Some(sup_instance) = ids.first() {
+                let mut inq_event = event.clone();
+                inq_event["instance_id"] = serde_json::json!(sup_instance);
+                inq_event["from_agent"] = serde_json::json!(lookup_key);
+                host.dispatch(inq_event);
+
+                chain.push(next_supervisor.clone());
+                drop(hosts); // release lock before acquiring pending_bubbles
+                if let Some(bubble) = self.pending_bubbles.lock().get_mut(inquiry_id) {
+                    bubble.current_supervisor_key = next_supervisor;
+                    bubble.forwarding_chain = chain;
+                }
+
+                return true;
+            }
+        }
+
+        drop(hosts);
+        self.surface_inquiry_to_engine(inquiry_id);
+        false
+    }
+
+    /// Spawn a 60-second timeout for a pending inquiry.
+    pub fn spawn_inquiry_timeout(self: &Arc<Self>, inquiry_id: &str) {
+        let router = Arc::clone(self);
+        let id = inquiry_id.to_string();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            if router.pending_bubbles.lock().contains_key(&id) {
+                tracing::info!(inquiry_id = %id, "Inquiry timed out, bubbling");
+                if !router.bubble_inquiry(&id) {
+                    router.surface_inquiry_to_engine(&id);
+                }
+            }
+        });
+    }
+
     // ── Heartbeat ────────────────────────────────────────────────────
 
     pub fn collect_heartbeat(&self) -> Vec<HeartbeatInstance> {
