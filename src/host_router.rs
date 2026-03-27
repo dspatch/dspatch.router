@@ -404,12 +404,16 @@ impl HostRouter {
 
     pub async fn resume_wait(
         &self,
-        _instance_id: &str,
+        instance_id: &str,
         request_id: &str,
     ) -> Result<serde_json::Value, String> {
         let (tx, rx) = oneshot::channel();
 
         if let Some(link) = self.chain_links.lock().get_mut(request_id) {
+            // Validate the request belongs to this instance
+            if link.caller_instance != instance_id {
+                return Err("request_id does not belong to this instance".into());
+            }
             link.response_tx = Some(tx);
         } else {
             return Err("no_pending_request".into());
@@ -563,17 +567,23 @@ impl HostRouter {
 
     /// Send RequestAlive heartbeats to all active chain links.
     pub fn send_chain_heartbeats(&self) {
-        let links = self.chain_links.lock();
-        for (request_id, link) in links.iter() {
+        let heartbeats: Vec<(String, String)> = {
+            let links = self.chain_links.lock();
+            links.iter().map(|(req_id, link)| {
+                (req_id.clone(), link.caller_instance.clone())
+            }).collect()
+        };
+
+        let hosts = self.agent_hosts.lock();
+        for (request_id, caller_instance) in &heartbeats {
             let alive_pkg = serde_json::json!({
                 "type": "agent.event.request.alive",
-                "instance_id": &link.caller_instance,
+                "instance_id": caller_instance,
                 "request_id": request_id,
             });
-            let hosts = self.agent_hosts.lock();
             for host in hosts.values() {
-                if host.instance_state(&link.caller_instance).is_some() {
-                    host.dispatch(alive_pkg.clone());
+                if host.instance_state(caller_instance).is_some() {
+                    host.dispatch(alive_pkg);
                     break;
                 }
             }
