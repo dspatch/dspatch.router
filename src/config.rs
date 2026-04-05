@@ -18,7 +18,7 @@ pub struct RouterConfig {
     pub workspace_id: String,
     pub agents_meta: HashMap<String, AgentMeta>,
     pub wal_path: String,
-    pub grpc_socket: String,
+    pub grpc_addr: String,
 }
 
 impl RouterConfig {
@@ -38,8 +38,8 @@ impl RouterConfig {
             agents_meta,
             wal_path: env::var("DSPATCH_WAL_PATH")
                 .unwrap_or_else(|_| "/data/dspatch.wal".into()),
-            grpc_socket: env::var("DSPATCH_GRPC_SOCKET")
-                .unwrap_or_else(|_| "/tmp/dspatch.sock".into()),
+            grpc_addr: env::var("DSPATCH_GRPC_ADDR")
+                .unwrap_or_else(|_| "127.0.0.1:50051".into()),
         })
     }
 

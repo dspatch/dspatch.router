@@ -85,34 +85,16 @@ async fn main() -> anyhow::Result<()> {
 
     // ── gRPC server ──
     let grpc_service = DspatchRouterService::new(host_router.clone());
+    let addr = config.grpc_addr.parse()?;
+    tracing::info!(%addr, "gRPC server listening");
 
-    #[cfg(unix)]
-    {
-        use tokio::net::UnixListener;
-
-        let socket_path = &config.grpc_socket;
-        let _ = std::fs::remove_file(socket_path);
-
-        let uds = UnixListener::bind(socket_path)?;
-        tracing::info!(socket = %socket_path, "gRPC server listening");
-
-        let incoming = tokio_stream::wrappers::UnixListenerStream::new(uds);
-        Server::builder()
-            .add_service(DspatchRouterServer::new(grpc_service))
-            .serve_with_incoming_shutdown(incoming, async {
-                tokio::signal::ctrl_c().await.ok();
-                tracing::info!("Shutting down");
-            })
-            .await?;
-    }
-
-    #[cfg(not(unix))]
-    {
-        tracing::warn!("UDS not available on this platform — gRPC server not started");
-        tracing::info!("dspatch-router is designed to run inside Linux Docker containers");
-        // Keep the process alive for testing
-        tokio::signal::ctrl_c().await.ok();
-    }
+    Server::builder()
+        .add_service(DspatchRouterServer::new(grpc_service))
+        .serve_with_shutdown(addr, async {
+            tokio::signal::ctrl_c().await.ok();
+            tracing::info!("Shutting down");
+        })
+        .await?;
 
     Ok(())
 }
